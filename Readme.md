@@ -1012,17 +1012,6 @@ Here’s what you’ve achieved today:
 
 # ⭐ **Final Polished Notes Version**
 
-Below is a **clean, corrected, deeply-explained version** of everything you wrote — including:
-
-✔ How Mongoose pre-hooks work
-✔ How JWT (sign, access/refresh tokens) works
-✔ Corrected token methods
-✔ Proper bcrypt usage
-✔ Fixed bug in your refreshToken method (you put expiry in place of secret)
-✔ Best practices
-✔ Clean reusable code
-
-This is exactly how a professional MERN backend should handle authentication.
 
 ---
 
@@ -1262,3 +1251,12 @@ export const User = mongoose.model("User", userSchema);
 ---
 ## today i am using the multer for file uploadation (second option express-fileupload)
 ### and get into work with fs module 
+
+### learned the https request file from crash course chat gpt could you explain it here
+```
+```
+---
+### now going to learn router and controller right now
+### created file name user.controller.js in controller folder 
+### created user.route.js
+** imported to app.js **
