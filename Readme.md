@@ -1249,14 +1249,420 @@ export const User = mongoose.model("User", userSchema);
 ```
 
 ---
-## today i am using the multer for file uploadation (second option express-fileupload)
-### and get into work with fs module 
-
-### learned the https request file from crash course chat gpt could you explain it here
-```
-```
 ---
-### now going to learn router and controller right now
-### created file name user.controller.js in controller folder 
-### created user.route.js
-** imported to app.js **
+
+# 📌 **Backend Learning Notes – 26/11/2025**
+
+---
+
+## 📁 **1. Today’s Learning Summary**
+
+Today I worked on backend fundamentals including:
+
+* File uploads using **Multer** (and checked *express-fileupload* as an alternative solution)
+* Using the **fs** module for file handling
+* Understanding **HTTPS requests** (learned from crash course)
+* Working with **Routes and Controllers**
+* API testing with **Postman**
+* Improving Cloudinary upload logic
+* Using **Collections** and **Environment Variables** in Postman
+
+---
+
+## 📤 **2. File Upload Handling (Multer)**
+
+* Implemented file uploading using **multer**.
+* Learned about:
+
+  * `diskStorage`
+  * managing file paths
+  * accessing uploaded files through `req.file` / `req.files`.
+
+### Alternative used
+
+Checked **express-fileupload** as an easier second option (less control but simpler).
+
+---
+
+## 📁 **3. Using Node’s `fs` Module**
+
+Worked with:
+
+* `fs.existsSync()`
+* `fs.unlinkSync()`
+* Reading and removing temporary local upload files
+* Used `fs.unlink` inside Cloudinary helper to delete local files after uploading.
+
+---
+
+## 🌐 **4. HTTPS Request (Crash Course Summary)**
+
+Learned how an HTTPS request works:
+
+* The browser/client sends a request to the server using **HTTPS**.
+* HTTPS uses **TLS/SSL** to encrypt data.
+* The server responds with a secure SSL certificate.
+* Both sides encrypt and decrypt data using secret keys.
+* Helps ensure **security**, **privacy**, and **integrity** of API calls.
+
+*(This matches how Postman communicates with your local server when using HTTPS URLs.)*
+
+---
+
+## 🚏 **5. Router and Controller Structure**
+
+Started using **MVC pattern**:
+
+### Example Structure
+
+```
+/controllers
+   └── user.controller.js
+
+/routes
+   └── user.route.js
+
+app.js
+```
+
+### Steps Completed
+
+* Created **user.controller.js** and added logic.
+* Created **user.route.js** and defined routes.
+* Imported the route into **app.js** using:
+
+  ```js
+  app.use("/api/v1/users", userRoutes);
+  ```
+
+---
+
+## 🧪 **6. Postman Work (26/11/2025)**
+
+Used Postman for:
+
+### ✔ GET & POST API Testing
+
+* Tested JSON body requests
+* Tested `form-data` for file uploads
+
+### ✔ Collections
+
+* Created API collections for better organization
+
+### ✔ Environment Variables
+
+Learned to use:
+
+* `{{base_url}}`
+* `{{token}}`
+* automatic variables
+* switching environments (local, dev, prod)
+
+---
+
+## ☁️ **7. Cloudinary Logic Improvement**
+
+Updated `cloudinary.js`:
+
+* Removed printing URL logs
+* Added auto-delete of local temporary file after upload:
+
+  ```js
+  fs.unlinkSync(localFilePath);
+  ```
+
+Cleaner upload flow → no leftover files in `/public/temp`.
+
+---
+
+# 🔒 **HTTPS – Simple, Clean Explanation**
+
+HTTPS stands for **HyperText Transfer Protocol Secure**.
+It is simply **HTTP + encryption**.
+
+### ⭐ Why HTTPS Exists
+
+Data sent over normal HTTP can be:
+
+* Read by anyone
+* Modified
+* Stolen (passwords, tokens, cookies)
+
+HTTPS fixes this by **encrypting every request and response**.
+
+---
+
+## 🧠 **How HTTPS Works (Very Simple Explanation)**
+
+### 1️⃣ **Client sends a request to the server**
+
+Example:
+
+```
+https://myapi.com/login
+```
+
+### 2️⃣ **Server sends a SSL Certificate**
+
+This certificate contains:
+
+* Server identity
+* Public key
+* Encryption information
+
+The browser checks if the certificate is valid and trusted.
+
+### 3️⃣ **Client creates a secret session key**
+
+This key is used to encrypt all communication after handshake.
+
+### 4️⃣ **Client encrypts the session key using server’s public key**
+
+Only the server can decrypt it using its **private key**.
+
+### 5️⃣ **Secure connection is established**
+
+Now every request (POST, GET) looks like:
+
+```
+Encrypted → cannot be read by anyone in between
+```
+
+### ⭐ In short:
+
+```
+HTTP = normal communication  
+HTTPS = same communication but encrypted and protected
+```
+
+---
+
+# 🏛️ **MVC – Model, View, Controller**
+
+MVC is a **software architecture pattern** that organizes code cleanly.
+
+It separates the application into **three parts**:
+
+```
+Model → Database layer  
+View → UI (frontend)  
+Controller → Logic/Processing (backend)
+```
+
+Since you are doing backend (Node + Express):
+
+* You mostly use **Model** and **Controller**
+* *View* is handled by React frontend (separate)
+
+---
+
+## 📁 **1️⃣ Model (M)**
+
+* Represents database structure
+* Defines collections/tables
+* Mongoose schema in MongoDB
+
+Example:
+
+```js
+const UserSchema = new mongoose.Schema({
+  fullName: String,
+  email: String,
+  password: String,
+});
+```
+
+The **Model** handles:
+
+* Validations
+* CRUD operations
+* Database queries
+
+---
+
+## 🧠 **2️⃣ Controller (C)**
+
+* Contains **logic** of the application
+* Processes request → interacts with model → sends response
+* Does NOT directly talk to the database; uses the Model instead
+
+Example:
+
+```js
+export const registerUser = async (req, res) => {
+  // logic   (validate, check user, call DB, send response)
+};
+```
+
+---
+
+## 🚏 **3️⃣ View (V)**
+
+In your project:
+**React / Frontend pages** act as "views".
+
+They display data sent by the controller through API responses.
+
+Example `useEffect` fetching posts:
+
+```js
+axios.get("/api/posts");
+```
+
+---
+
+# ⭐ **How MVC Works Together**
+
+When a user takes action (e.g., register):
+
+1. **Route** receives `/register`
+2. **Controller** handles validation + logic
+3. **Model** saves data in MongoDB
+4. **Controller** returns sanitized data
+5. **View (React)** displays result
+
+Flow diagram:
+
+```
+User → Route → Controller → Model → Controller → View
+```
+
+---
+
+# 🎯 Why MVC Is Important
+
+* Cleaner code
+* Easy to maintain
+* Easy to add new features
+* Clear separation of responsibility
+* Professional industry-standard structure
+
+Most modern backend systems (Node, Django, Laravel, Rails, Spring Boot) use MVC in some form.
+
+---
+
+# Today `27-11-2025` lets goes to deeper into Acces refresh token,Middleware and cookies 
+
+- firstly i learned how refresh token works while we are validating user from acces token than how if refresh token same from both than i proide acces token again 
+
+- than i created the function og loging user (gpt explain below code)
+
+```
+const loginUser = asyncHandler(async (req, res) => {
+  // req body-> data
+  // username or email
+  // find the user | user not found
+  // password check  | password wrong
+  // access and refresh token
+  // send cookies
+
+  const { email, username, password } = req.body;
+
+  if (!username || !email) {
+    throw new ApiError(400, "username or email is required");
+  }
+
+  const user = await User.findOne({
+    $or: [{ username }, { email }],
+  });
+
+  if (!user) {
+    throw new ApiError(404, "User not found !");
+  }
+
+  const isPasswordValid = await user.isPasswordCorrect(password);
+
+  if (!isPasswordValid) {
+    throw new ApiError(401, "Invalid user credentials");
+  }
+  // i added refresh token in methods
+
+  const { accessToken, refreshToken } = await generateAccessAndRefreshTokens(
+    user._id
+  ); // passed for id form user
+
+  const loggedInUser = await User.findById(user.id).select(
+    "-password -refreshToken"
+  );
+
+  const options = {
+    httpOnly: true,
+    secure: true,
+  };
+  return res
+    .status(200)
+    .cookie("accessToken", accessToken, options)
+    .cookie("refreshToken", refreshToken, options)
+    .json(
+      new ApiResponse(
+        200,
+        {
+          user: loggedInUser,
+          accessToken,
+          refreshToken,
+        },
+        "User logged in Successfully"
+      )
+    );
+});
+```
+
+# than worked on the logOut
+```
+const logoutUser = asyncHandler(async(req,res)=>{
+   User.findByIdAndUpdate(
+    req.user._id,{
+      $set: {
+        refreshToken:undefined
+      }
+    },
+    {
+      new:true
+    }
+   )
+   const options = {
+    httpOnly:true,
+    secure:true
+   }
+   return res
+   .status(200)
+   .clearCookie("accessToken",options)
+   .clearCookie("refreshToken",options)
+   .json(new ApiResponse(200,{},"User logged Out"))
+})
+```
+and created a auth middleware
+```
+import { ApiError } from "../utils/ApiError.js";
+import { asyncHandler } from "../utils/asyncHandler.js";
+import jwt from "jsonwebtoken"
+
+export const verifyJWT = asyncHandler(async(req,_,next)=>{
+try {
+      const token =   req.cookies?.accessToken || req.header("Authorization")?.replace("Bearer ","")
+    
+    if(!token){
+        throw new ApiError(401,"Unathorized request")
+    }
+       const decodedToken = jwt.verify(token,process.env.ACCESS_TOKEN_SECRET) 
+         
+       await User.findById(decodedToken?._id).select
+       ("-password -refreshToken")
+    
+       if(!user){
+        //NEXT_VIDEO: discuss about frontend
+        throw new ApiError(401,"Invalid Access TOken")
+       }
+       req.user = user; // add user information
+       next()
+} catch (error) {
+    throw new ApiError(401,error?.message||
+        "Invalid Acces Token"
+    )
+    
+}
+    })
+
+```
+
