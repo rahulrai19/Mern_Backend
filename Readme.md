@@ -1931,3 +1931,624 @@ router.route("/refresh-token").post(refreshAccessToken);
 
 ---
 
+## Learning Mongodb aggregation pipeline
+
+![subscription schema](image-1.png)
+![alt text](image-2.png)
+![alt text](image-3.png)
+ 
+`07-02-2026` ## how to write sub pipelines and routes
+used `$lookup`
+![stage wruting](image-4.png)
+![output](image-5.png)
+
+`addFields:` $first
+![addfields](image-6.png)
+
+`$arrayElemAt`
+![arrayelementat](image-7.png)
+
+`09-02-2026`
+---
+
+# getUserChannelProfile Controller – Notes
+
+## Purpose
+
+Fetch a user’s channel profile using **MongoDB Aggregation**, including:
+
+* Subscriber count
+* Channels subscribed to count
+* Whether the current user is subscribed to the channel
+
+---
+
+## Key Concepts Used
+
+* `MongoDB Aggregation Pipeline`
+* `$lookup`
+* `$addFields`
+* `$project`
+* Conditional fields using `$cond`
+* Array processing using `$map` and `$in`
+
+---
+
+## Problems Addressed
+
+1. Avoid multiple DB queries by using aggregation
+2. Count subscribers and subscriptions efficiently
+3. Determine subscription status of logged-in user
+
+---
+
+## Final Controller Code 
+
+```js
+const getUserChannelProfile = asyncHandler(async (req, res) => {
+  const { username } = req.params;
+
+  if (!username?.trim()) {
+    throw new ApiError(400, "Username is required");
+  }
+
+  const channel = await User.aggregate([
+    {
+      $match: {
+        username: username.toLowerCase()
+      }
+    },
+    {
+      $lookup: {
+        from: "subscriptions",
+        localField: "_id",
+        foreignField: "channel",
+        as: "subscribers"
+      }
+    },
+    {
+      $lookup: {
+        from: "subscriptions",
+        localField: "_id",
+        foreignField: "subscriber",
+        as: "subscribedTo"
+      }
+    },
+    {
+      $addFields: {
+        subscriberCount: {
+          $size: "$subscribers"
+        },
+        channelsSubscribedToCount: {
+          $size: "$subscribedTo"
+        },
+        isSubscribed: {
+          $cond: {
+            if: {
+              $in: [
+                req.user?._id,
+                {
+                  $map: {
+                    input: "$subscribers",
+                    as: "sub",
+                    in: "$$sub.subscriber"
+                  }
+                }
+              ]
+            },
+            then: true,
+            else: false
+          }
+        }
+      }
+    },
+    {
+      $project: {
+        fullName: 1,
+        username: 1,
+        subscriberCount: 1,
+        channelsSubscribedToCount: 1,
+        isSubscribed: 1,
+        avatar: 1,
+        coverImage: 1
+      }
+    }
+  ]);
+
+  if (!channel.length) {
+    throw new ApiError(404, "User not found");
+  }
+
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      channel[0],
+      "User channel profile fetched successfully"
+    )
+  );
+});
+```
+
+---
+
+## Explanation of Aggregation Stages
+
+### `$match`
+
+Filters user by username (converted to lowercase for consistency).
+
+### `$lookup` (Subscribers)
+
+Fetches all users who have subscribed to this channel.
+
+### `$lookup` (Subscribed To)
+
+Fetches all channels the user has subscribed to.
+
+### `$addFields`
+
+* `subscriberCount` → total subscribers
+* `channelsSubscribedToCount` → total subscriptions
+* `isSubscribed` → checks if current user ID exists in subscriber list
+
+### `$project`
+
+Returns only required public profile fields.
+
+---
+
+## Important Notes
+
+* MongoDB collection names are **case-sensitive**
+* `$map` is required to extract IDs from array of objects
+* `aggregate()` always returns an **array**
+* Email should not be exposed in public channel profiles
+* `req.user` must be populated via authentication middleware
+
+---
+
+## One-Line Summary
+
+> This controller efficiently fetches a user’s channel profile using MongoDB aggregation, providing subscriber metrics and subscription status in a single optimized query.
+
+---
+
+---
+
+# 📅 11-02-2026
+
+## 📌 Topic: MongoDB Aggregation Sub-Pipelines + Routes
+
+---
+
+# 🔹 1. Converting String to ObjectId in Mongoose
+
+When `_id` comes from:
+
+* JWT (`req.user._id`)
+* Params (`req.params.id`)
+* Body (`req.body.id`)
+
+It is usually a **string**.
+
+MongoDB `_id` is stored as **ObjectId**, so we must convert it.
+
+### ✅ Correct Way:
+
+```js
+new mongoose.Types.ObjectId(id)
+```
+
+### 📌 Example:
+
+```js
+_id: new mongoose.Types.ObjectId(req.user._id)
+```
+
+### 🔥 Why Important?
+
+If you don’t convert:
+
+* `$match` may fail
+* Query may not return results
+* Aggregation might behave unexpectedly
+
+---
+
+# 🔹 2. Understanding the Aggregation Flow
+
+Your goal:
+
+> Get logged-in user's watch history
+> Populate video details
+> Populate video owner details
+> Return clean structured data
+
+---
+
+# 🔹 Final Optimized Version (Improved)
+
+```js
+const getWatchHistory = asyncHandler(async (req, res) => {
+
+  const userId = new mongoose.Types.ObjectId(req.user._id);
+
+  const [user] = await User.aggregate([
+
+    // 1️⃣ Match logged-in user
+    {
+      $match: { _id: userId }
+    },
+
+    // 2️⃣ Lookup videos from watchHistory array
+    {
+      $lookup: {
+        from: "videos",
+        localField: "watchHistory",
+        foreignField: "_id",
+        as: "watchHistory",
+
+        // 🔥 Sub Pipeline
+        pipeline: [
+
+          // 3️⃣ Lookup video owner
+          {
+            $lookup: {
+              from: "users",
+              localField: "owner",
+              foreignField: "_id",
+              as: "owner",
+              pipeline: [
+                {
+                  $project: {
+                    fullName: 1,
+                    username: 1,
+                    avatar: 1
+                  }
+                }
+              ]
+            }
+          },
+
+          // 4️⃣ Convert owner array → object
+          {
+            $addFields: {
+              owner: { $first: "$owner" }
+            }
+          }
+
+        ]
+      }
+    }
+  ]);
+
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      user?.watchHistory || [],
+      "Watch history fetched successfully"
+    )
+  );
+});
+```
+
+---
+
+# 🔹 3. What is a Sub-Pipeline?
+
+A **sub-pipeline** is a pipeline inside `$lookup`.
+
+It allows:
+
+* Nested population
+* Filtering
+* Projection
+* Sorting
+* Transformation
+
+### Structure:
+
+```js
+$lookup: {
+  from: "collection",
+  localField: "field",
+  foreignField: "_id",
+  as: "output",
+  pipeline: [ ... ]   // 👈 Sub-pipeline
+}
+```
+
+---
+
+# 🔹 4. Why Use `$first`?
+
+`$lookup` always returns an **array**.
+
+But `owner` should be a single object.
+
+So we convert:
+
+```js
+{
+  $addFields: {
+    owner: { $first: "$owner" }
+  }
+}
+```
+
+Without this, response would be:
+
+```js
+owner: [ { fullName: "..."} ]
+```
+
+After `$first`:
+
+```js
+owner: { fullName: "..."}
+```
+
+---
+
+# 🔹 5. Optimization Improvements Made
+
+### ✅ 1. Extracted userId variable
+
+Cleaner + reusable
+
+```js
+const userId = new mongoose.Types.ObjectId(req.user._id);
+```
+
+---
+
+### ✅ 2. Used array destructuring
+
+Instead of:
+
+```js
+const user = await User.aggregate([...])
+user[0]
+```
+
+We used:
+
+```js
+const [user] = await User.aggregate([...])
+```
+
+Cleaner + safer.
+
+---
+
+### ✅ 3. Safe return
+
+```js
+user?.watchHistory || []
+```
+
+Prevents crash if:
+
+* user not found
+* aggregation returns empty
+
+---
+
+# 🔹 6. Mental Model (Very Important)
+
+Think like this:
+
+```
+User
+ └── watchHistory (array of video ids)
+       └── Video
+             └── owner (user)
+```
+
+So it's:
+
+User → Videos → Owner
+
+Nested lookup = Nested population
+
+---
+
+# 🔹 7. Interview-Level Understanding
+
+If interviewer asks:
+
+### ❓ Why use aggregation instead of `.populate()`?
+
+You can say:
+
+* More control over data
+* Better performance tuning
+* Allows transformations
+* Can add computed fields
+* Can filter inside lookup
+* Production-grade scalable approach
+
+---
+
+# 🔹 8. Advanced Optimization (Production Level)
+
+If watchHistory becomes large:
+
+Add projection inside video lookup:
+
+```js
+{
+  $project: {
+    title: 1,
+    thumbnail: 1,
+    duration: 1,
+    owner: 1
+  }
+}
+```
+
+This reduces:
+
+* Memory usage
+* Network payload
+* Query cost
+
+---
+
+# 🧠 What You Learned Today
+
+✔ ObjectId conversion
+✔ Nested `$lookup`
+✔ Sub-pipelines
+✔ `$addFields`
+✔ `$first`
+✔ Clean response handling
+✔ Production-level aggregation structure
+
+--- 
+
+`24-02-2026` ## Swagger documentation
+
+### How swagger works
+```
+Your API Code
+      ↓
+Swagger Config (OpenAPI spec)
+      ↓
+Swagger UI
+      ↓
+Interactive Docs in Browser
+```
+### Setup
+```js
+npm install swagger-ui-express swagger-jsdoc
+
+```
+### Basic Swagger Setup
+inside `src/index.js`
+```js
+import express from "express";
+import swaggerUi from "swagger-ui-express";
+import swaggerJsdoc from "swagger-jsdoc";
+
+const app = express();
+
+const options = {
+  definition: {
+    openapi: "3.0.0",
+    info: {
+      title: "ERP API",
+      version: "1.0.0",
+      description: "ERP Backend API Documentation",
+    },
+    servers: [
+      {
+        url: "http://localhost:5000",
+      },
+    ],
+  },
+  apis: ["./src/routes/*.js"], // where your route files are
+};
+
+const specs = swaggerJsdoc(options);
+
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(specs));
+
+app.listen(5000, () => {
+  console.log("Server running on port 5000");
+});
+```
+```
+http://localhost:5000/api-docs
+```
+### Document a Route(Important Part)
+`routes/userRoute.js`
+```js
+import express from "express";
+const router = express.Router();
+
+/**
+ * @swagger
+ * /api/users:
+ *   get:
+ *     summary: Get all users
+ *     description: Returns list of users
+ *     responses:
+ *       200:
+ *         description: Successful response
+ */
+router.get("/users", (req, res) => {
+  res.json([{ name: "Rahul" }]);
+});
+
+export default router;
+```
+` Swagger Route Breakdown `
+```yaml
+@swagger
+/api/users:
+  get:
+    summary: Short title
+    description: Detailed description
+    responses:
+      200:
+        description: Success
+```
+# Sequence of working
+```
+swagger-jsdoc
+     ↓
+Scans your route files
+     ↓
+Reads @swagger comments
+     ↓
+Generates OpenAPI JSON
+     ↓
+Swagger UI renders it
+```
+### For documentation We can Add
+* add @Swagger Comments
+`Example`
+* 1 . Register Route (File Upload + Form Data) 
+`Content-Type` : ` multipart/form-data`
+```js
+
+
+### Professional Folder Structure
+```
+src/
+ ├── routes/
+ │     ├── userRoutes.js
+ ├── config/
+ │     ├── swagger.js
+ ├── index.js
+
+ ```
+## Adding JWT Auth in Swagger
+```js
+components: {
+  securitySchemes: {
+    bearerAuth: {
+      type: "http",
+      scheme: "bearer",
+      bearerFormat: "JWT",
+    },
+  },
+},
+security: [
+  {
+    bearerAuth: [],
+  },
+],
+```
+
+
+
+
+
+
+
+
+
+
+
